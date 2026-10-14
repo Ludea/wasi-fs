@@ -1,0 +1,11 @@
+[package]
+name = "wasip3-fs"
+version = "0.1.0"
+edition = "2021"
+description = "tokio::fs-like async filesystem API on top of wasi:filesystem 0.3"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Pin to the release matching your wasi:filesystem 0.3.x WIT.
+wasip3 = "0.9"
+futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
