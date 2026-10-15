@@ -65,7 +65,10 @@ fn time(t: &Option<wasip3::clocks::system_clock::Instant>) -> Option<SystemTime>
 }
 
 fn unsupported() -> io::Error {
-    io::Error::new(io::ErrorKind::Unsupported, "timestamp not available on this platform")
+    io::Error::new(
+        io::ErrorKind::Unsupported,
+        "timestamp not available on this platform",
+    )
 }
 
 impl Metadata {

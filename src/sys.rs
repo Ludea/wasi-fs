@@ -6,12 +6,12 @@
 use std::cell::OnceCell;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use wasip3::filesystem::preopens::get_directories;
 use wasip3::filesystem::types::{Descriptor, DescriptorFlags, ErrorCode, OpenFlags, PathFlags};
 
-pub type Fd = Rc<Descriptor>;
+pub type Fd = Arc<Descriptor>;
 
 /// (descriptor, normalized components, is_absolute)
 type Preopen = (Fd, Vec<String>, bool);
@@ -47,7 +47,8 @@ pub fn invalid(msg: &'static str) -> io::Error {
 }
 
 pub fn path_str(path: &Path) -> io::Result<&str> {
-    path.to_str().ok_or_else(|| invalid("path is not valid UTF-8"))
+    path.to_str()
+        .ok_or_else(|| invalid("path is not valid UTF-8"))
 }
 
 /// Lexically splits a path into (is_absolute, components), resolving `.` and `..`.
@@ -92,7 +93,7 @@ pub fn resolve(path: &Path) -> io::Result<(Fd, String)> {
                 .into_iter()
                 .map(|(fd, name)| {
                     let (a, c) = components(&name);
-                    (Rc::new(fd), c, a)
+                    (Arc::new(fd), c, a)
                 })
                 .collect()
         });
@@ -111,21 +112,37 @@ pub fn resolve(path: &Path) -> io::Result<(Fd, String)> {
                 }
             })
             .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::PermissionDenied, "path is not under any preopened directory")
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "path is not under any preopened directory",
+                )
             })?;
 
         let rest = &comps[best.1.len()..];
-        let rel = if rest.is_empty() { ".".to_string() } else { rest.join("/") };
+        let rel = if rest.is_empty() {
+            ".".to_string()
+        } else {
+            rest.join("/")
+        };
         Ok((best.0.clone(), rel))
     })
 }
 
-pub async fn open(path: &Path, follow: bool, open: OpenFlags, flags: DescriptorFlags) -> io::Result<Fd> {
+pub async fn open(
+    path: &Path,
+    follow: bool,
+    open: OpenFlags,
+    flags: DescriptorFlags,
+) -> io::Result<Fd> {
     let (dir, rel) = resolve(path)?;
-    let path_flags = if follow { PathFlags::SYMLINK_FOLLOW } else { PathFlags::empty() };
+    let path_flags = if follow {
+        PathFlags::SYMLINK_FOLLOW
+    } else {
+        PathFlags::empty()
+    };
     dir.open_at(path_flags, rel, open, flags)
         .await
-        .map(Rc::new)
+        .map(Arc::new)
         .map_err(io_err)
 }
 

@@ -21,11 +21,21 @@ impl File {
     }
 
     pub async fn create(path: impl AsRef<Path>) -> io::Result<File> {
-        OpenOptions::new().write(true).create(true).truncate(true).open(path).await
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .await
     }
 
     pub async fn create_new(path: impl AsRef<Path>) -> io::Result<File> {
-        OpenOptions::new().read(true).write(true).create_new(true).open(path).await
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .await
     }
 
     pub fn options() -> OpenOptions {
@@ -59,7 +69,12 @@ impl File {
     pub async fn read_exact(&mut self, mut buf: &mut [u8]) -> io::Result<()> {
         while !buf.is_empty() {
             match self.read(buf).await? {
-                0 => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "failed to fill whole buffer")),
+                0 => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "failed to fill whole buffer",
+                    ))
+                }
                 n => buf = &mut buf[n..],
             }
         }
@@ -77,8 +92,12 @@ impl File {
     pub async fn read_to_string(&mut self, out: &mut String) -> io::Result<usize> {
         let mut bytes = Vec::new();
         let n = self.read_to_end(&mut bytes).await?;
-        let s = String::from_utf8(bytes)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "stream did not contain valid UTF-8"))?;
+        let s = String::from_utf8(bytes).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "stream did not contain valid UTF-8",
+            )
+        })?;
         out.push_str(&s);
         Ok(n)
     }
@@ -171,7 +190,9 @@ impl OpenOptions {
     pub async fn open(&self, path: impl AsRef<Path>) -> io::Result<File> {
         let writable = self.write || self.append;
         if !self.read && !writable {
-            return Err(invalid("must specify at least one of read, write or append"));
+            return Err(invalid(
+                "must specify at least one of read, write or append",
+            ));
         }
         if !writable && (self.truncate || self.create || self.create_new) {
             return Err(invalid("truncate/create require write or append access"));
@@ -199,6 +220,10 @@ impl OpenOptions {
         }
 
         let fd = sys::open(path.as_ref(), true, open, flags).await?;
-        Ok(File { fd, pos: 0, append: self.append })
+        Ok(File {
+            fd,
+            pos: 0,
+            append: self.append,
+        })
     }
 }
